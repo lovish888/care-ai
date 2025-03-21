@@ -1,0 +1,8 @@
+flask
+flask-socketio
+web3.py
+requests
+langchain
+openai
+coinbase-agentkit
+python-dotenv
