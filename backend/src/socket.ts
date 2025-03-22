@@ -132,8 +132,8 @@ export function setupSocket(io: Server) {
       try {
         // Save the entire chat to 0g.ai
         // TODO: Fix
-        // const rootHash = await zeroGStorage.saveChat(activeChat.chat);
-        activeChat.rootHash = uuidv4();
+        const rootHash = await zeroGStorage.saveChat(activeChat.chat);
+        activeChat.rootHash = rootHash;
 
         // Log the chat resolution to the blockchain
         // await chatLogger.logChatResolution(activeChat.chat.chatId, activeChat.chat.status);

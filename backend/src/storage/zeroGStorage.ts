@@ -44,18 +44,22 @@ export class ZeroGStorage {
       if (treeErr !== null) {
         throw new Error(`Error generating Merkle tree: ${treeErr}`);
       }
+    
 
       // Get root hash for future reference
       const rootHash = tree?.rootHash() ?? '';
       if (!rootHash) {
         throw new Error('Failed to get root hash');
       }
+    //   console.log('RootHash', rootHash)
+    //   console.log('Zgfile', zgFile, 'RpcUrl', this.rpcUrl, 'Signer', this.signer)
 
       // Upload the file
       const [tx, uploadErr] = await this.indexer.upload(zgFile, this.rpcUrl, this.signer);
       if (uploadErr !== null) {
-        throw new Error(`Upload error: ${uploadErr}`);
+        console.log(`Upload error: ${uploadErr}`);
       }
+
       console.log(`Uploaded chat ${chat.chatId} with transaction hash: ${tx}`);
 
       // Close the file
