@@ -54,12 +54,12 @@ async function importExistingWallet(): Promise<Wallet> {
 // Attempts to fund a wallet if it does not have enough ETH.
 async function maybeFundWallet(sendingWallet: Wallet) {
     const ethBalance = await sendingWallet.getBalance(assetId);
-    // console.log(`Current ETH balance: ${ethBalance.toString()}`);
+    console.log(`Current ETH balance: ${ethBalance.toString()}`);
     const ethRequired = 0.001;
     if (ethBalance.lt(ethRequired)) {
       const faucetTransaction = await sendingWallet.faucet();
       const newEthBalance = await sendingWallet.getBalance(assetId);
-    //   console.log(`New ETH balance: ${newEthBalance.toString()}`);
+      console.log(`New ETH balance: ${newEthBalance.toString()}`);
     }
   }
 
