@@ -215,12 +215,32 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
                     color="brand.primary"
                     _hover={{ bg: "blue.50" }}
                   >
-                    <Flex align="center" gap={1}>
+                    {/* <Flex align="center" gap={1}>
                       View Chat
                       <Icon as={FiArrowRight} />
-                    </Flex>
+                    </Flex> */}
                   </Button>
                 </Link>
+                <Button
+                  ml={4}
+                  variant="ghost"
+                  size="sm"
+                  color="blue.500"
+                  _hover={{ bg: "blue.50" }}
+                  onClick={() => console.log("Share feature is not implemented yet.")}
+                >
+                  Share on X
+                </Button>
+                <Button
+                  ml={4}
+                  variant="ghost"
+                  size="sm"
+                  color="red.500"
+                  _hover={{ bg: "red.50" }}
+                  onClick={() => console.log("Complaint feature is not implemented yet.")}
+                >
+                  Escalate the Complaint
+                </Button>
               </Flex>
             </Box>
           ))}
