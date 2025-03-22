@@ -1,63 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Box, Heading, Text, Stack, Button, Flex, Badge, Icon } from "@chakra-ui/react";
 import { FiTruck, FiShoppingBag, FiArrowRight } from "react-icons/fi";
 import { FaStar } from "react-icons/fa";
+import axios from 'axios';
 
 interface ChatHistoryProps {
   wallet: string;
 }
 
 interface ChatEntry {
-  id: string;
+  chatId: string;
   category: string;
-  status: "resolved" | "pending" | "closed";
-  lastUpdated: string;
-  resolution?: string;
+  status: "ongoing" | "resolved" | "expired";
+  expiresAt: string;
+  messages: { id: string; role: string; content: string; timestamp: string }[]; // Add id field
   rating?: number;
 }
 
 const ChatHistory = ({ wallet }: ChatHistoryProps) => {
   const [filter, setFilter] = useState<string>("all");
-  
-  // Mock chat history data
-  const [chats] = useState<ChatEntry[]>([
-    {
-      id: "chat_1721384522",
-      category: "Food Delivery",
-      status: "resolved",
-      lastUpdated: "2023-10-15",
-      resolution: "Refund processed for missing items",
-      rating: 4,
-    },
-    {
-      id: "chat_1721381234",
-      category: "Ecommerce",
-      status: "resolved",
-      lastUpdated: "2023-10-10",
-      resolution: "Replacement shipped for damaged product",
-      rating: 5,
-    },
-    {
-      id: "chat_1721380321",
-      category: "Food Delivery",
-      status: "closed",
-      lastUpdated: "2023-10-05",
-      resolution: "Delivery delay compensation provided",
-      rating: 3,
-    },
-    {
-      id: "chat_1721376543",
-      category: "Ecommerce",
-      status: "pending",
-      lastUpdated: "2023-10-01",
-    },
-  ]);
+  const [chats, setChats] = useState<ChatEntry[]>([]);
 
-  // Filter chats based on selected filter
-  const filteredChats = filter === "all" 
-    ? chats 
-    : chats.filter(chat => chat.status === filter);
+  useEffect(() => {
+    fetchChatHistory();
+  }, [wallet]);
+
+  const fetchChatHistory = async () => {
+    const chatMetadata = JSON.parse(localStorage.getItem('chatMetadata') || '{}');
+    const walletChats = chatMetadata[wallet] || [];
+    if (walletChats.length === 0) {
+      setChats([]);
+      return;
+    }
+
+    const chatIds = walletChats.map((entry: any) => entry.chatId).join(',');
+    const rootHashes = walletChats.map((entry: any) => entry.rootHash).join(',');
+
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/history/${wallet}`, {
+        params: { chatIds, rootHashes },
+      });
+      setChats(response.data);
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      setChats([]);
+    }
+  };
+
+  // Map backend status to frontend status
+  const mapStatus = (backendStatus: string): "resolved" | "pending" | "closed" => {
+    switch (backendStatus) {
+      case "resolved":
+        return "resolved";
+      case "ongoing":
+        return "pending";
+      case "expired":
+        return "closed";
+      default:
+        return "pending";
+    }
+  };
 
   // Get appropriate status color
   const getStatusColor = (status: string) => {
@@ -128,19 +131,18 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
               Closed
             </Button>
           </Flex>
-          
         </Flex>
       </Box>
 
-      {filteredChats.length === 0 ? (
+      {chats.length === 0 ? (
         <Box textAlign="center" py={12} bg="white" rounded="lg" border="1px" borderColor="gray.100">
           <Text color="gray.500">No chat history found for this filter</Text>
         </Box>
       ) : (
         <Stack gap={4} align="stretch">
-          {filteredChats.map((chat) => (
+          {chats.map((chat) => (
             <Box 
-              key={chat.id} 
+              key={chat.chatId} 
               bg="white" 
               p={4} 
               rounded="lg" 
@@ -166,7 +168,7 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
                   </Flex>
                   <Box>
                     <Heading as="h3" size="sm">{chat.category} Support</Heading>
-                    <Text fontSize="sm" color="gray.500">{chat.id.replace("chat_", "#")}</Text>
+                    <Text fontSize="sm" color="gray.500">{chat.chatId.replace("chat_", "#")}</Text>
                   </Box>
                 </Flex>
                 <Badge 
@@ -174,17 +176,18 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
                   py={1} 
                   rounded="full" 
                   fontSize="xs" 
-                  bg={getStatusColor(chat.status).bg} 
-                  color={getStatusColor(chat.status).text}
+                  bg={getStatusColor(mapStatus(chat.status)).bg} 
+                  color={getStatusColor(mapStatus(chat.status)).text}
                 >
-                  {chat.status.charAt(0).toUpperCase() + chat.status.slice(1)}
+                  {mapStatus(chat.status).charAt(0).toUpperCase() + mapStatus(chat.status).slice(1)}
                 </Badge>
               </Flex>
 
-              {chat.resolution && (
+              {chat.messages.length > 0 && (
                 <Box mb={3}>
                   <Text fontSize="sm" color="gray.600">
-                    <Text as="span" fontWeight="medium">Resolution:</Text> {chat.resolution}
+                    <Text as="span" fontWeight="medium">Last Message:</Text>{" "}
+                    {chat.messages[chat.messages.length - 1].content}
                   </Text>
                 </Box>
               )}
@@ -204,7 +207,7 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
               )}
 
               <Text fontSize="xs" color="gray.500">
-                Last updated: {chat.lastUpdated}
+                Expires At: {new Date(chat.expiresAt).toLocaleString()}
               </Text>
 
               <Flex justify="flex-end" mt={4} pt={2} borderTop="1px" borderColor="gray.100">

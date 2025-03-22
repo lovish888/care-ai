@@ -3,10 +3,13 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentKit } from "@coinbase/agentkit";
 import { Chat } from "../types";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Initialize OpenAI LLM
 const llm = new ChatOpenAI({
-  model: "gpt-3.5-turbo",
+  model: "gpt-4o-mini",
   apiKey: process.env.OPENAI_API_KEY!,
   temperature: 0.7,
   maxTokens: 150,
@@ -62,14 +65,7 @@ export async function handleEcommerceQuery(
     messages,
   });
 
-  let agentResponse = response.messages[0].content;
-
-//   if (agentResponse.toLowerCase().includes("refund")) {
-//     agentResponse = agentResponse.replace(
-//       "refund",
-//       "refund of 0.01 ETH to your wallet"
-//     );
-//   }
+  let agentResponse = response.messages.slice(-1)[0].content;
 
   return agentResponse.toString() || "I'm sorry, I couldn't process your request.";
 }

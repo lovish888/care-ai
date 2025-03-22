@@ -8,7 +8,7 @@ export interface Message {
   export interface Chat {
     chatId: string;
     wallet: string;
-    context: 'Food Delivery' | 'Ecommerce';
+    category: string;
     status: 'ongoing' | 'expired' | 'resolved';
     messages: Message[];
     rating: number | null;

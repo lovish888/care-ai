@@ -2,56 +2,106 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Heading, Stack, Input, Button, Text, Flex, Icon } from '@chakra-ui/react';
 import { FiSend } from 'react-icons/fi';
+import io, { Socket } from 'socket.io-client';
 
 interface SupportChatProps {
   wallet: string;
-  category: string;
+  category?: string; // Made optional since it's also coming from useParams
   onEndChat: () => void;
 }
 
 interface Message {
+  id: string; // Add id field
   role: string;
   content: string;
+  timestamp?: string;
 }
 
-const SupportChat = ({ wallet, category, onEndChat }: SupportChatProps) => {
+const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatProps) => {
   const { category: urlCategory } = useParams<{ category: string }>();
+  const category = propCategory || urlCategory || 'Food Delivery'; // Fallback to 'Food Delivery' if undefined
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'support', content: `Welcome to ${category} support! How may I assist you today?` },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [chatId, setChatId] = useState<string | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setChatId('chat_' + Date.now());
-  }, []);
+    // Initialize chatId
+    const newChatId = 'chat_' + Date.now();
+    setChatId(newChatId);
+
+    // Connect to Socket.IO server
+    const socketInstance = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
+    setSocket(socketInstance);
+
+    socketInstance.on('connect', () => {
+      // Start the chat
+      socketInstance.emit('start_chat', { wallet, context: category });
+      console.log('Starting chat');
+    });
+
+    socketInstance.on('chat_started', (data: { chatId: string }) => {
+      setChatId(data.chatId);
+      console.log('Chat started with ID:', data.chatId);
+    });
+
+    socketInstance.on('message', (message: Message) => {
+      setMessages((prev) => [...prev, message]);
+      console.log('Received message:', message);
+    });
+
+    socketInstance.on('chat_resolved', (data: { chatId: string; rootHash: string }) => {
+      console.log('Chat resolved');
+      saveChatMetadata(data.chatId, data.rootHash);
+      navigate(`/feedback/${data.chatId}`);
+    });
+
+    return () => {
+      socketInstance.disconnect();
+      console.log('Disconnected from Socket.IO server');
+    };
+  }, [wallet, category, navigate]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
+  const saveChatMetadata = (chatId: string, rootHash: string) => {
+    const chatMetadata = JSON.parse(localStorage.getItem('chatMetadata') || '{}');
+    if (!chatMetadata[wallet]) {
+      chatMetadata[wallet] = [];
+    }
+    const chatEntry = chatMetadata[wallet].find((entry: any) => entry.chatId === chatId);
+    if (chatEntry) {
+      chatEntry.rootHash = rootHash;
+    } else {
+      chatMetadata[wallet].push({ chatId, rootHash });
+    }
+    localStorage.setItem('chatMetadata', JSON.stringify(chatMetadata));
+  };
 
-    const userMessage: Message = { role: 'user', content: input };
+  const handleSendMessage = () => {
+    if (!input.trim() || !socket || !chatId) return;
+
+    const userMessage: Message = {
+      id: 'temp_' + Date.now(), // Temporary ID until the backend assigns a real one
+      role: 'user',
+      content: input,
+    };
     setMessages((prev) => [...prev, userMessage]);
+    socket.emit('send_message', { chatId, content: input });
+    console.log('Sending message:', input);
     setInput('');
-
-    setTimeout(() => {
-      const supportMessage: Message = { role: 'support', content: "I'm looking into your issue—this is now resolved." };
-      setMessages((prev) => [...prev, supportMessage]);
-      if (supportMessage.content.includes('resolved')) {
-        setTimeout(() => {
-          navigate(`/feedback/${chatId}`);
-        }, 1000);
-      }
-    }, 1000);
   };
 
   const handleEndChat = () => {
+    if (socket && chatId) {
+      socket.emit('end_chat', { chatId, rating: null }); // Rating will be set in ChatFeedback
+      console.log('Ending chat:', chatId);
+    }
     onEndChat();
   };
 
@@ -103,8 +153,8 @@ const SupportChat = ({ wallet, category, onEndChat }: SupportChatProps) => {
           },
         }}
       >
-        {messages.map((msg, index) => (
-          <Flex key={index} justify={msg.role === 'user' ? 'flex-end' : 'flex-start'}>
+        {messages.map((msg) => (
+          <Flex key={msg.id} justify={msg.role === 'user' ? 'flex-end' : 'flex-start'}>
             <Box
               maxW="70%"
               p={4}
@@ -127,6 +177,11 @@ const SupportChat = ({ wallet, category, onEndChat }: SupportChatProps) => {
               }}
             >
               <Text>{msg.content}</Text>
+              {msg.timestamp && (
+                <Text fontSize="xs" color={msg.role === 'user' ? 'gray.200' : 'gray.500'} mt={1}>
+                  {new Date(msg.timestamp).toLocaleTimeString()}
+                </Text>
+              )}
             </Box>
           </Flex>
         ))}

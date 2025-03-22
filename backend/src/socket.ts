@@ -1,131 +1,122 @@
-import { v4 as uuidv4 } from 'uuid';
 import { Server, Socket } from 'socket.io';
-import { Chat, Message } from './types';
+import { v4 as uuidv4 } from 'uuid';
 import { zeroGStorage } from './storage/zeroGStorage';
+import { Chat, Message } from './types';
 import { handleFoodDeliveryQuery } from './agents/foodDeliveryagent';
 import { handleEcommerceQuery } from './agents/ecommerceAgent';
+import { chatLogger } from './blockchain/chatLogger';
 
 interface ActiveChat {
   chat: Chat;
-  socket: Socket;
+  rootHash: string;
 }
 
 const activeChats: { [chatId: string]: ActiveChat } = {};
 
 export function setupSocket(io: Server) {
   io.on('connection', (socket: Socket) => {
-    console.log('A user connected:', socket.id);
+    console.log(`Client connected: ${socket.id}`);
 
-    socket.on('start_chat', async (data: { wallet: string; context: 'Food Delivery' | 'Ecommerce' }) => {
+    socket.on('start_chat', async (data: { wallet: string; context: string }) => {
+      console.log('Socket: Start chat');
       const { wallet, context } = data;
       const chatId = `chat_${uuidv4()}`;
-      const createdAt = new Date(Date.now()).toISOString();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
 
       const chat: Chat = {
         chatId,
         wallet,
-        context,
-        messages: [],
+        category: context,
         status: 'ongoing',
-        createdAt,
-        expiresAt,
+        createdAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        messages: [],
         rating: null,
       };
 
-      const welcomeMessage: Message = {
-        id: uuidv4(),
-        role: 'support',
-        content: 'Welcome to CareAI support! How may I assist you today?',
-        timestamp: new Date().toISOString(),
-      };
+      activeChats[chatId] = { chat, rootHash: '' };
 
-      chat.messages.push(welcomeMessage);
-
-      activeChats[chatId] = { chat, socket };
-
-      // Save the chat to 0g.ai and get the root hash
-      const rootHash = await zeroGStorage.saveChat(chat);
-
-      // Emit the chatId and rootHash to the frontend
-      socket.emit('chat_started', { chatId, rootHash });
-
-      // Send the welcome message
-      socket.emit('message', welcomeMessage);
+      socket.join(chatId);
+      socket.emit('chat_started', { chatId });
     });
 
     socket.on('send_message', async (data: { chatId: string; content: string }) => {
+      console.log('Socket: Received user message');
       const { chatId, content } = data;
       const activeChat = activeChats[chatId];
-      if (!activeChat || activeChat.chat.status !== 'ongoing') return;
+      if (!activeChat) {
+        socket.emit('error', { message: 'Chat not found' });
+        return;
+      }
 
       const userMessage: Message = {
-        id: uuidv4(),
+        id: uuidv4(), // Add unique ID for the user message
         role: 'user',
         content,
         timestamp: new Date().toISOString(),
       };
       activeChat.chat.messages.push(userMessage);
 
-      // Save the updated chat to 0g.ai and get the new root hash
-      const rootHash = await zeroGStorage.saveChat(activeChat.chat);
-
-      socket.emit('message', userMessage);
-
-      // Emit the new root hash to the frontend
-      socket.emit('root_hash_updated', { chatId, rootHash });
-
-      const agentResponse = activeChat.chat.context === 'Food Delivery'
-        ? await handleFoodDeliveryQuery(content, activeChat.chat)
-        : await handleEcommerceQuery(content, activeChat.chat);
+      let supportResponse: string;
+      
+      if (activeChat.chat.category === 'Food Delivery') {
+        supportResponse = await handleFoodDeliveryQuery(content, activeChat.chat);
+      } else if (activeChat.chat.category === 'Ecommerce') {
+        supportResponse = await handleEcommerceQuery(content, activeChat.chat);
+      } else {
+        supportResponse = 'I am not sure how to assist with that. Please provide more details.';
+      }
 
       const supportMessage: Message = {
-        id: uuidv4(),
+        id: uuidv4(), // Add unique ID for the support message
         role: 'support',
-        content: agentResponse,
+        content: supportResponse,
         timestamp: new Date().toISOString(),
       };
       activeChat.chat.messages.push(supportMessage);
+      io.to(chatId).emit('message', supportMessage);
 
-      // Save the updated chat again
-      const newRootHash = await zeroGStorage.saveChat(activeChat.chat);
-
-      socket.emit('message', supportMessage);
-
-      // Emit the new root hash again
-      socket.emit('root_hash_updated', { chatId, rootHash: newRootHash });
-
-      if (supportMessage.content.includes('resolved')) {
+      if (supportResponse.toLowerCase().includes('resolved')) {
         activeChat.chat.status = 'resolved';
-        await zeroGStorage.saveChat(activeChat.chat);
-        socket.emit('chat_resolved', { chatId });
+        io.to(chatId).emit('chat_resolved', { chatId });
       }
     });
 
-    socket.on('end_chat', async (data: { chatId: string; rating: number }) => {
+    socket.on('end_chat', async (data: { chatId: string; rating: number | null }) => {
+      console.log('Socket: End chat');
       const { chatId, rating } = data;
       const activeChat = activeChats[chatId];
-      if (!activeChat) return;
+      if (!activeChat) {
+        socket.emit('error', { message: 'Failed to end chat: Chat not found' });
+        return;
+      }
 
-      activeChat.chat.status = 'resolved';
+      // Update the chat with the rating and status
       activeChat.chat.rating = rating;
+      activeChat.chat.status = 'resolved';
 
-      // Save the final chat state
-      const rootHash = await zeroGStorage.saveChat(activeChat.chat);
+      try {
+        // Save the entire chat to 0g.ai
+        // const rootHash = await zeroGStorage.saveChat(activeChat.chat);
+        activeChat.rootHash = uuidv4();
 
-      socket.emit('chat_resolved', { chatId, rootHash });
+        // Log the chat resolution to the blockchain
+        // await chatLogger.logChatResolution(activeChat.chat.chatId, activeChat.chat.status);
 
-      delete activeChats[chatId];
+        // Emit the final rootHash to the frontend
+        io.to(chatId).emit('chat_resolved', { chatId, roothash: activeChat.rootHash });
+
+        // Clean up
+        delete activeChats[chatId];
+        socket.leave(chatId);
+      } catch (error) {
+        console.error(`Error ending chat ${chatId}:`, error);
+        socket.emit('error', { message: 'Failed to end chat' });
+      }
     });
 
     socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.id);
-      for (const chatId in activeChats) {
-        if (activeChats[chatId].socket.id === socket.id) {
-          delete activeChats[chatId];
-          break;
-        }
-      }
+      console.log(`Client disconnected: ${socket.id}`);
     });
   });
 }

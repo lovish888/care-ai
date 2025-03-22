@@ -34,9 +34,9 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Layout authenticated={authenticated} wallet={wallet} />}>
           <Route index element={
-            authenticated ? <Navigate to="/dashboard" replace /> : <LandingPage onLogin={login} />
+            authenticated || wallet ? <Navigate to="/dashboard" replace /> : <LandingPage onLogin={login} />
           } />
-          {authenticated && wallet && (
+          {wallet && (
             <>
               <Route path="dashboard" element={<MainMenu wallet={wallet} />} />
               <Route path="chat/:category" element={<SupportChat wallet={wallet} />} />
@@ -44,7 +44,7 @@ const App = () => {
               <Route path="feedback/:chatId" element={<ChatFeedback wallet={wallet} />} />
             </>
           )}
-          {authenticated && !wallet && (
+          {!wallet && (
             <Route path="*" element={
               <Box p={8} textAlign="center">
                 <Text fontSize="xl" mb={4}>Wallet connection required</Text>

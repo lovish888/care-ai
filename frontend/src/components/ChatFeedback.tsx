@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Heading, Text, Stack, Button, Flex, Icon } from '@chakra-ui/react';
 import { FaStar } from 'react-icons/fa';
+import io, { Socket } from 'socket.io-client';
 
 interface ChatFeedbackProps {
   wallet: string;
@@ -13,9 +14,43 @@ const ChatFeedback = ({ wallet }: ChatFeedbackProps) => {
   const [rating, setRating] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  useEffect(() => {
+    // Connect to Socket.IO server
+    const socketInstance = io(import.meta.env.VITE_BACKEND_URL);
+    setSocket(socketInstance);
+
+    socketInstance.on('connect', () => {
+      console.log('Connected to Socket.IO server for feedback');
+    });
+
+    socketInstance.on('root_hash_updated', (data: { chatId: string; rootHash: string }) => {
+      saveChatMetadata(data.chatId, data.rootHash);
+    });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, []);
+
+  const saveChatMetadata = (chatId: string, rootHash: string) => {
+    const chatMetadata = JSON.parse(localStorage.getItem('chatMetadata') || '{}');
+    if (!chatMetadata[wallet]) {
+      chatMetadata[wallet] = [];
+    }
+    const chatEntry = chatMetadata[wallet].find((entry: any) => entry.chatId === chatId);
+    if (chatEntry) {
+      chatEntry.rootHash = rootHash;
+    } else {
+      chatMetadata[wallet].push({ chatId, rootHash });
+    }
+    localStorage.setItem('chatMetadata', JSON.stringify(chatMetadata));
+  };
 
   const handleRatingSubmit = () => {
-    if (rating) {
+    if (rating && socket && chatId) {
+      socket.emit('end_chat', { chatId, rating });
       setSubmitted(true);
     }
   };
@@ -88,7 +123,7 @@ const ChatFeedback = ({ wallet }: ChatFeedbackProps) => {
           </Button>
           
           <Button
-            onClick={() => navigate('/chat/Food Delivery')}
+            onClick={() => navigate(`/chat/${chatId?.includes('Food') ? 'Food Delivery' : 'Ecommerce'}`)}
             bg="brand.primary"
             color="white"
             size="lg"

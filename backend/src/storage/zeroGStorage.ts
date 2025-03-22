@@ -4,6 +4,9 @@ import { Chat } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export class ZeroGStorage {
   private indexer: Indexer;

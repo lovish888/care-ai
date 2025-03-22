@@ -3,6 +3,9 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentKit } from "@coinbase/agentkit";
 import { Chat } from "../types";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Initialize OpenAI LLM
 const llm = new ChatOpenAI({
@@ -61,14 +64,7 @@ export async function handleFoodDeliveryQuery(
     messages,
   });
 
-  let agentResponse = response.messages[0].content;
-
-//   if (agentResponse.toLowerCase().includes("refund")) {
-//     agentResponse = agentResponse.replace(
-//       "refund",
-//       "refund of 0.01 ETH to your wallet"
-//     );
-//   }
+  let agentResponse = response.messages.slice(-1)[0].content;
 
   return agentResponse.toString() || "I'm sorry, I couldn't process your request.";
 }
