@@ -59,10 +59,6 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
     ? chats 
     : chats.filter(chat => chat.status === filter);
 
-  const handleClearHistory = () => {
-    alert("This feature is not available in the MVP version.");
-  };
-
   // Get appropriate status color
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,15 +129,6 @@ const ChatHistory = ({ wallet }: ChatHistoryProps) => {
             </Button>
           </Flex>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearHistory}
-            color="gray.600"
-            borderColor="gray.300"
-          >
-            Clear History
-          </Button>
         </Flex>
       </Box>
 

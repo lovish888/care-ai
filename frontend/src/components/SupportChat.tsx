@@ -5,6 +5,8 @@ import { FiSend } from 'react-icons/fi';
 
 interface SupportChatProps {
   wallet: string;
+  category: string;
+  onEndChat: () => void;
 }
 
 interface Message {
@@ -12,8 +14,8 @@ interface Message {
   content: string;
 }
 
-const SupportChat = ({ wallet }: SupportChatProps) => {
-  const { category } = useParams<{ category: string }>();
+const SupportChat = ({ wallet, category, onEndChat }: SupportChatProps) => {
+  const { category: urlCategory } = useParams<{ category: string }>();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'support', content: `Welcome to ${category} support! How may I assist you today?` },
@@ -49,18 +51,32 @@ const SupportChat = ({ wallet }: SupportChatProps) => {
     }, 1000);
   };
 
+  const handleEndChat = () => {
+    onEndChat();
+  };
+
   return (
-    <Box maxW="900px" mx="auto" bg="white" p={8} rounded="xl" shadow="lg">
-      <Heading 
-        as="h2" 
-        size="lg" 
-        color="gray.800" 
-        mb={6}
-        bgGradient="linear(to-r, brand.primary, blue.600)"
-        bgClip="text"
-      >
-        {category} Support
-      </Heading>
+    <Box maxW="1000px" mx="auto" bg="white" p={8} rounded="xl" shadow="lg">
+      <Flex justify="space-between" mb={6}>
+        <Heading 
+          as="h2" 
+          size="lg"
+          color="black"
+        >
+          {category} Support
+        </Heading>
+        <Button
+          onClick={handleEndChat}
+          color="red"
+          size="lg"
+          background="white"
+          px={8}
+          _hover={{ transform: 'translateY(-2px)', boxShadow: 'md' }}
+          transition="all 0.2s"
+        >
+          End Chat
+        </Button>
+      </Flex>
       <Stack
         h="500px"
         overflowY="auto"
