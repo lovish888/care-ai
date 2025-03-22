@@ -90,6 +90,7 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
       id: 'temp_' + Date.now(), // Temporary ID until the backend assigns a real one
       role: 'user',
       content: input,
+      timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMessage]);
     socket.emit('send_message', { chatId, content: input });
@@ -170,13 +171,19 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
                   bottom: '12px',
                   [msg.role === 'user' ? 'right' : 'left']: '-6px',
                   borderStyle: 'solid',
-                  borderWidth: '6px',
                   borderColor: `transparent ${msg.role === 'user' ? 'brand.primary' : 'white'} transparent transparent`,
                   transform: msg.role === 'user' ? 'rotate(180deg)' : 'none',
                 }
               }}
             >
-              <Text>{msg.content}</Text>
+              <Text>
+                {msg.content.split(' ').map((word) => {
+                  if (word.startsWith('http://') || word.startsWith('https://')) {
+                    return <a href={word} target="_blank" rel="noopener noreferrer" style={{ color: 'blue.500', textDecoration: 'underline' }}>{word}</a>;
+                  }
+                  return word + ' ';
+                })}
+              </Text>
               {msg.timestamp && (
                 <Text fontSize="xs" color={msg.role === 'user' ? 'gray.200' : 'gray.500'} mt={1}>
                   {new Date(msg.timestamp).toLocaleTimeString()}

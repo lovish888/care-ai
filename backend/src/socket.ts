@@ -5,10 +5,12 @@ import { Chat, Message } from './types';
 import { handleFoodDeliveryQuery } from './agents/foodDeliveryagent';
 import { handleEcommerceQuery } from './agents/ecommerceAgent';
 import { chatLogger } from './blockchain/chatLogger';
+import { refundWithAgentKit } from './agents/coinbaseAgentKit';
 
 interface ActiveChat {
   chat: Chat;
   rootHash: string;
+  refundIssued: boolean;
 }
 
 const activeChats: { [chatId: string]: ActiveChat } = {};
@@ -34,7 +36,7 @@ export function setupSocket(io: Server) {
         rating: null,
       };
 
-      activeChats[chatId] = { chat, rootHash: '' };
+      activeChats[chatId] = { chat, rootHash: '', refundIssued: false };
 
       socket.join(chatId);
       socket.emit('chat_started', { chatId });
@@ -76,9 +78,41 @@ export function setupSocket(io: Server) {
       activeChat.chat.messages.push(supportMessage);
       io.to(chatId).emit('message', supportMessage);
 
-      if (supportResponse.toLowerCase().includes('resolved')) {
-        activeChat.chat.status = 'resolved';
-        io.to(chatId).emit('chat_resolved', { chatId });
+      // Check if the support response includes the refund trigger phrase
+      if (
+        supportResponse.includes('I am working to process') && supportResponse.includes('refund') &&
+        !activeChat.refundIssued
+      ) {
+        try {
+          // Trigger refund via Coinbase AgentKit
+          const refundAmount = Math.round((Math.random() * (0.0001 - 0.00001) + 0.00001) * 100000) / 100000; // Random value between 0.00001 to 0.0001 (in ETH), rounded off to 5 decimal places
+          const txlink = await refundWithAgentKit(activeChat.chat.wallet, refundAmount);
+
+          // Mark refund as issued to prevent duplicates
+          activeChat.refundIssued = true;
+
+          // Notify the LLM (and frontend) that the refund has been processed
+          const refundMessage: Message = {
+            id: uuidv4(),
+            role: 'support',
+            content: `The refund of ${refundAmount} ETH has been successfully processed to your wallet. 
+            You can check its status at the following link: ${txlink}`,
+            timestamp: new Date().toISOString(),
+          };
+          activeChat.chat.messages.push(refundMessage);
+          io.to(chatId).emit('message', refundMessage);
+        
+        } catch (error) {
+          console.error(`Error processing refund for chat ${chatId}:`, error);
+          const errorMessage: Message = {
+            id: uuidv4(),
+            role: 'support',
+            content: 'I encountered an issue while processing your refund. I’ve escalated this to our team, and we’ll ensure it’s resolved soon.',
+            timestamp: new Date().toISOString(),
+          };
+          activeChat.chat.messages.push(errorMessage);
+          io.to(chatId).emit('message', errorMessage);
+        }
       }
     });
 
@@ -97,6 +131,7 @@ export function setupSocket(io: Server) {
 
       try {
         // Save the entire chat to 0g.ai
+        // TODO: Fix
         // const rootHash = await zeroGStorage.saveChat(activeChat.chat);
         activeChat.rootHash = uuidv4();
 
