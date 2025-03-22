@@ -7,7 +7,6 @@ import {
   Image,
   Text,
   useDisclosure,
-  Spacer,
 } from "@chakra-ui/react";
 import { IoLogOutOutline } from "react-icons/io5";
 import { usePrivy } from "@privy-io/react-auth";
