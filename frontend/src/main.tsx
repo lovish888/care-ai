@@ -3,6 +3,30 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { ChakraProvider } from '@chakra-ui/react';
+import { createSystem, defineConfig, defaultConfig } from '@chakra-ui/react';
+
+// Define the custom theme using defineConfig
+const customConfig = defineConfig({
+  theme: {
+    tokens: {
+      colors: {
+        brand: {
+          primary: { value: '#676FFF' },
+          secondary: { value: '#F3F4F6' },
+          accent: { value: '#FF6B6B' },
+        },
+      },
+      fonts: {
+        heading: { value: `'Inter', sans-serif` },
+        body: { value: `'Inter', sans-serif` },
+      },
+    },
+  },
+});
+
+// Create the system with the custom config
+const customSystem = createSystem(defaultConfig, customConfig);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -12,7 +36,7 @@ createRoot(document.getElementById("root")!).render(
         appearance: {
           theme: 'light',
           accentColor: '#676FFF',
-          logo: "https://auth.privy.io/logos/privy-logo.png",
+          logo: "/logo.jpg",
         },
         loginMethods: ["wallet"],
         embeddedWallets: {
@@ -20,7 +44,9 @@ createRoot(document.getElementById("root")!).render(
         }
       }}
     >
-      <App />
+      <ChakraProvider value={customSystem}>
+        <App />
+      </ChakraProvider>
     </PrivyProvider>
   </StrictMode>
 );
