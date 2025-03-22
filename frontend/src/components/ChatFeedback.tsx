@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Heading, Text, VStack, Button, Flex } from '@chakra-ui/react';
+import { Box, Heading, Text, Stack, Button, Flex, Icon } from '@chakra-ui/react';
 import { FaStar } from 'react-icons/fa';
 
-interface PostChatProps {
+interface ChatFeedbackProps {
   wallet: string;
 }
 
-function PostChat({ wallet }: PostChatProps) {
-  const { chatId } = useParams<{ chatId: string }>();
+const ChatFeedback = ({ wallet }: ChatFeedbackProps) => {
+  const { chatId } = useParams();
   const navigate = useNavigate();
   const [rating, setRating] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -29,18 +29,21 @@ function PostChat({ wallet }: PostChatProps) {
       <Heading as="h2" size="md" color="gray.800" mb={4}>
         Chat Ended
       </Heading>
+      
       {!submitted ? (
-        <VStack spacing={4}>
+        <Stack gap={4}>
           <Text color="gray.600">
             How would you rate this support session? (1-5 stars)
           </Text>
-          <Flex gap={2}>
+          
+          <Flex gap={2} justify="center">
             {[...Array(5)].map((_, index) => {
               const ratingValue = index + 1;
               return (
-                <FaStar
+                <Icon
                   key={index}
-                  size={30}
+                  as={FaStar}
+                  boxSize={8}
                   color={ratingValue <= (hover || rating || 0) ? '#FFD700' : '#E5E7EB'}
                   onClick={() => setRating(ratingValue)}
                   onMouseEnter={() => setHover(ratingValue)}
@@ -50,21 +53,29 @@ function PostChat({ wallet }: PostChatProps) {
               );
             })}
           </Flex>
+          
           <Button
             onClick={handleRatingSubmit}
-            isDisabled={!rating}
+            disabled={!rating}
             bg="brand.primary"
             color="white"
             size="lg"
+            width="full"
             _hover={{ bg: 'blue.700' }}
-            _disabled={{ bg: 'gray.400', cursor: 'not-allowed' }}
+            _disabled={{
+              bg: 'gray.400',
+              cursor: 'not-allowed'
+            }}
           >
             Submit Rating
           </Button>
-        </VStack>
+        </Stack>
       ) : (
-        <VStack spacing={3}>
-          <Text color="gray.600">Thank you for your feedback!</Text>
+        <Stack gap={3}>
+          <Text color="gray.600">
+            Thank you for your feedback!
+          </Text>
+          
           <Button
             onClick={handleShare}
             bg="brand.accent"
@@ -75,6 +86,7 @@ function PostChat({ wallet }: PostChatProps) {
           >
             Share on Social Media
           </Button>
+          
           <Button
             onClick={() => navigate('/chat/Food Delivery')}
             bg="brand.primary"
@@ -85,8 +97,9 @@ function PostChat({ wallet }: PostChatProps) {
           >
             Raise Further Complaint
           </Button>
+          
           <Button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             bg="gray.500"
             color="white"
             size="lg"
@@ -95,10 +108,10 @@ function PostChat({ wallet }: PostChatProps) {
           >
             Back to Home
           </Button>
-        </VStack>
+        </Stack>
       )}
     </Box>
   );
-}
+};
 
-export default PostChat;
+export default ChatFeedback;

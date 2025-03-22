@@ -1,81 +1,70 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { usePrivy } from '@privy-io/react-auth';
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Box, Flex, Heading, Button, Text, Image } from '@chakra-ui/react';
-import MainMenu from './components/MainMenu';
-import Chat from './components/Chat';
-import History from './components/History';
-import PostChat from './components/PostChat';
+import { useState, useEffect } from 'react';
+import Layout from "./components/Layout";
+import LandingPage from "./components/LandingPage";
+import MainMenu from "./components/MainMenu";
+import SupportChat from "./components/SupportChat";
+import ChatHistory from "./components/ChatHistory";
+import ChatFeedback from "./components/ChatFeedback";
+import { Box, Text, Button } from '@chakra-ui/react';
 
-function App() {
-  const { login, authenticated, user } = usePrivy();
+const App = () => {
+  const { login, authenticated, user, ready } = usePrivy();
   const [wallet, setWallet] = useState<string | null>(null);
 
-  if (authenticated && user?.wallet?.address && wallet !== user.wallet.address) {
-    setWallet(user.wallet.address);
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address && wallet !== user.wallet.address) {
+      setWallet(user.wallet.address);
+      console.log("User authenticated with wallet:", user.wallet.address);
+    }
+  }, [authenticated, user, wallet]);
+
+  // Wait for Privy to be ready
+  if (!ready) {
+    return (
+      <Box p={8} textAlign="center">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
   }
 
   return (
-    <Router>
-      <Box minH="100vh" bg="brand.secondary">
-        <Box as="header" bg="white" shadow="md" p={4}>
-          <Flex maxW="1200px" mx="auto" align="center" justify="space-between">
-            <Flex align="center">
-              <Image src="/logo.jpg" alt="care-ai Logo" h="40px" mr={3} />
-              <Heading as="h1" size="lg" color="gray.800">
-                Care AI
-              </Heading>
-            </Flex>
-            {authenticated && wallet && (
-              <Flex gap={4}>
-                <Link to="/">
-                  <Button variant="link" color="brand.primary">
-                    Home
-                  </Button>
-                </Link>
-                <Link to="/history">
-                  <Button variant="link" color="brand.primary">
-                    History
-                  </Button>
-                </Link>
-              </Flex>
-            )}
-          </Flex>
-        </Box>
-
-        <Box as="main" p={6}>
-          {authenticated && wallet ? (
-            <Routes>
-              <Route path="/" element={<MainMenu wallet={wallet} />} />
-              <Route path="/chat/:context" element={<Chat wallet={wallet} />} />
-              <Route path="/post-chat/:chatId" element={<PostChat wallet={wallet} />} />
-              <Route path="/history" element={<History wallet={wallet} />} />
-            </Routes>
-          ) : (
-            <Flex direction="column" align="center" justify="center" h="calc(100vh - 80px)">
-              <Heading as="h2" size="xl" color="gray.700" mb={4}>
-                Welcome to care-ai
-              </Heading>
-              <Text color="gray.500" mb={6}>
-                Connect your wallet to get started with seamless support.
-              </Text>
-              <Button
-                onClick={login}
-                bg="brand.primary"
-                color="white"
-                size="lg"
-                px={8}
-                py={6}
-                _hover={{ bg: 'blue.700' }}
-              >
-                Connect Wallet
-              </Button>
-            </Flex>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout authenticated={authenticated} wallet={wallet} />}>
+          <Route index element={
+            authenticated ? <Navigate to="/dashboard" replace /> : <LandingPage onLogin={login} />
+          } />
+          {authenticated && wallet && (
+            <>
+              <Route path="dashboard" element={<MainMenu wallet={wallet} />} />
+              <Route path="chat/:category" element={<SupportChat wallet={wallet} />} />
+              <Route path="history" element={<ChatHistory wallet={wallet} />} />
+              <Route path="feedback/:chatId" element={<ChatFeedback wallet={wallet} />} />
+            </>
           )}
-        </Box>
-      </Box>
-    </Router>
+          {authenticated && !wallet && (
+            <Route path="*" element={
+              <Box p={8} textAlign="center">
+                <Text fontSize="xl" mb={4}>Wallet connection required</Text>
+                <Text color="gray.600" mb={6}>
+                  Please connect your wallet to access this feature.
+                </Text>
+                <Button 
+                  bg="brand.primary" 
+                  color="white" 
+                  onClick={login}
+                >
+                  Connect Wallet
+                </Button>
+              </Box>
+            } />
+          )}
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
