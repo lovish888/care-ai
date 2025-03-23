@@ -3,3 +3,5 @@ node_modules
 package-lock.json
 encrypted_seed.json
 wallet.json
+src/storage/sample.txt
+src/storage/test.ts

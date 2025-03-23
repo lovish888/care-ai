@@ -56,7 +56,7 @@ const ChatFeedback = ({ wallet }: ChatFeedbackProps) => {
   };
 
   const handleShare = () => {
-    alert('Shared on social media!');
+    alert('Coming soon!');
   };
 
   return (
@@ -123,7 +123,7 @@ const ChatFeedback = ({ wallet }: ChatFeedbackProps) => {
           </Button>
           
           <Button
-            onClick={() => navigate(`/chat/${chatId?.includes('Food') ? 'Food Delivery' : 'Ecommerce'}`)}
+            onClick={handleShare}
             bg="brand.primary"
             color="white"
             size="lg"

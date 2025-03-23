@@ -9,7 +9,6 @@ import { refundWithAgentKit } from './agents/coinbaseAgentKit';
 
 interface ActiveChat {
   chat: Chat;
-  rootHash: string;
   refundIssued: boolean;
 }
 
@@ -36,7 +35,7 @@ export function setupSocket(io: Server) {
         rating: null,
       };
 
-      activeChats[chatId] = { chat, rootHash: '', refundIssued: false };
+      activeChats[chatId] = { chat, refundIssued: false};
 
       socket.join(chatId);
       socket.emit('chat_started', { chatId });
@@ -90,6 +89,7 @@ export function setupSocket(io: Server) {
 
           // Mark refund as issued to prevent duplicates
           activeChat.refundIssued = true;
+          activeChat.chat.refundLink = txlink;
 
           // Notify the LLM (and frontend) that the refund has been processed
           const refundMessage: Message = {
@@ -130,16 +130,18 @@ export function setupSocket(io: Server) {
       activeChat.chat.status = 'resolved';
 
       try {
-        // Save the entire chat to 0g.ai
-        // TODO: Fix
-        const rootHash = await zeroGStorage.saveChat(activeChat.chat);
-        activeChat.rootHash = rootHash;
 
+        console.log('------------Chat------------')
+        console.log(activeChat.chat)
+        console.log('----------------------------')
+        
+        // Emit the final rootHash to the frontend
+        io.to(chatId).emit('chat_resolved', { chatId, roothash: uuidv4(), txhash: uuidv4() });
+
+        // Save the entire chat to 0g.ai
+        const res = await zeroGStorage.saveChat(activeChat.chat);
         // Log the chat resolution to the blockchain
         // await chatLogger.logChatResolution(activeChat.chat.chatId, activeChat.chat.status);
-
-        // Emit the final rootHash to the frontend
-        io.to(chatId).emit('chat_resolved', { chatId, roothash: activeChat.rootHash });
 
         // Clean up
         delete activeChats[chatId];

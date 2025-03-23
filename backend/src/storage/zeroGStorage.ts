@@ -25,15 +25,19 @@ export class ZeroGStorage {
     this.indexer = new Indexer(indexerRPC);
   }
 
-  async saveChat(chat: Chat): Promise<string> {
+  async saveChat(chat: Chat): Promise<{roothash: string, txHash: string}> {
     // Convert chat to Buffer
     const data = Buffer.from(JSON.stringify(chat));
+
+    console.log('\n\n##########################################################\n')
+    console.log('------------------------ 0g Storage ---------------------')
+    console.log('\n##########################################################')
 
     // Create a temporary file to use ZgFile.fromFilePath
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, `chat_${chat.chatId}.json`);
     await fs.writeFile(tempFilePath, data);
-    console.log('File created temporarily at:', tempFilePath)
+    console.log('\nFile created temporarily at:', tempFilePath)
 
     try {
       // Create file object from file path
@@ -42,8 +46,10 @@ export class ZeroGStorage {
       // Generate Merkle tree for verification
       const [tree, treeErr] = await zgFile.merkleTree();
       if (treeErr !== null) {
-        throw new Error(`Error generating Merkle tree: ${treeErr}`);
+        throw new Error(`\nError generating Merkle tree: ${treeErr}`);
       }
+      console.log('\nMerkle tree generated successfully')
+      console.log('\nRoothash: ', tree?.rootHash())
     
       // Get root hash for future reference
       const rootHash = tree?.rootHash();
@@ -51,19 +57,23 @@ export class ZeroGStorage {
         throw new Error('Failed to get root hash');
       }
 
+      console.log('\nUploading file to 0g Storage.......\n')
+
       // Upload the file
       const [tx, uploadErr] = await this.indexer.upload(zgFile, this.rpcUrl, this.signer);
       if (uploadErr !== null) {
         console.log(`Upload error: ${uploadErr}`);
       }
 
-      console.log(`Uploaded chat ${chat.chatId} successfuly, transaction hash: ${tx}`);
+      console.log(`\nUploaded chat ${chat.chatId} successfuly, transaction hash: ${tx}`);
+
+      console.log('-------------------------------------------------------')
 
       // Close the file
       await zgFile.close();
 
       // Return the root hash to the frontend
-      return rootHash;
+      return {roothash: rootHash, txHash: tx};
     } catch (error) {
       console.error(`Failed to save chat ${chat.chatId}:`, error);
       throw error;

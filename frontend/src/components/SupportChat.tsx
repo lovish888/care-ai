@@ -11,7 +11,7 @@ interface SupportChatProps {
 }
 
 interface Message {
-  id: string; // Add id field
+  id: string;
   role: string;
   content: string;
   timestamp?: string;
@@ -52,10 +52,11 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
       console.log('Received message:', message);
     });
 
-    socketInstance.on('chat_resolved', (data: { chatId: string; rootHash: string }) => {
+    socketInstance.on('chat_resolved', (data: { chatId: string; rootHash: string, txhash: string }) => {
       console.log('Chat resolved');
-      saveChatMetadata(data.chatId, data.rootHash);
+      saveChatMetadata(data.chatId, data.rootHash, data.txhash);
       navigate(`/feedback/${data.chatId}`);
+      onEndChat();
     });
 
     return () => {
@@ -69,7 +70,7 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const saveChatMetadata = (chatId: string, rootHash: string) => {
+  const saveChatMetadata = (chatId: string, rootHash: string, txhash: string) => {
     const chatMetadata = JSON.parse(localStorage.getItem('chatMetadata') || '{}');
     if (!chatMetadata[wallet]) {
       chatMetadata[wallet] = [];
@@ -77,8 +78,9 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
     const chatEntry = chatMetadata[wallet].find((entry: any) => entry.chatId === chatId);
     if (chatEntry) {
       chatEntry.rootHash = rootHash;
+      chatEntry.txhash = txhash;
     } else {
-      chatMetadata[wallet].push({ chatId, rootHash });
+      chatMetadata[wallet].push({ chatId, rootHash, txhash });
     }
     localStorage.setItem('chatMetadata', JSON.stringify(chatMetadata));
   };
@@ -87,7 +89,7 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
     if (!input.trim() || !socket || !chatId) return;
 
     const userMessage: Message = {
-      id: 'temp_' + Date.now(), // Temporary ID until the backend assigns a real one
+      id: 'temp_' + Date.now(), // Temporary ID for UI, until the backend assigns a real one
       role: 'user',
       content: input,
       timestamp: new Date().toISOString(),
@@ -103,7 +105,6 @@ const SupportChat = ({ wallet, category: propCategory, onEndChat }: SupportChatP
       socket.emit('end_chat', { chatId, rating: null }); // Rating will be set in ChatFeedback
       console.log('Ending chat:', chatId);
     }
-    onEndChat();
   };
 
   return (

@@ -33,7 +33,7 @@ const MainMenu = ({ wallet }: MainMenuProps) => {
     setIsChatOpen(false);
     setSelectedCategory(null);
     // Remove active chat state from localStorage
-    localStorage.removeItem("activeChat");
+    localStorage.removeItem("activeChat");    
   };
 
   return (
