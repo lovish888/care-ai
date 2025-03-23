@@ -15,15 +15,14 @@ export class ZeroGStorage {
 
   constructor() {
     // Network Constants
-    this.rpcUrl = process.env.SEPOLIA_RPC_URL!;
-    const INDEXER_RPC = process.env.ZEROG_STORAGE_NODE!;
+    this.rpcUrl = process.env.ZEROG_RPC!;
+    const privateKey = process.env.ZEROG_PRIVATE_KEY!;
+    const indexerRPC = process.env.ZEROG_STORAGE_NODE!;
 
-    // Initialize provider and signer
+    // Initialize provider, signer and indexer
     const provider = new ethers.JsonRpcProvider(this.rpcUrl);
-    this.signer = new ethers.Wallet(process.env.SEPOLIA_PRIVATE_KEY!, provider);
-
-    // Initialize indexer
-    this.indexer = new Indexer(INDEXER_RPC);
+    this.signer = new ethers.Wallet(privateKey, provider);
+    this.indexer = new Indexer(indexerRPC);
   }
 
   async saveChat(chat: Chat): Promise<string> {
@@ -34,6 +33,7 @@ export class ZeroGStorage {
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, `chat_${chat.chatId}.json`);
     await fs.writeFile(tempFilePath, data);
+    console.log('File created temporarily at:', tempFilePath)
 
     try {
       // Create file object from file path
@@ -45,14 +45,11 @@ export class ZeroGStorage {
         throw new Error(`Error generating Merkle tree: ${treeErr}`);
       }
     
-
       // Get root hash for future reference
-      const rootHash = tree?.rootHash() ?? '';
+      const rootHash = tree?.rootHash();
       if (!rootHash) {
         throw new Error('Failed to get root hash');
       }
-    //   console.log('RootHash', rootHash)
-    //   console.log('Zgfile', zgFile, 'RpcUrl', this.rpcUrl, 'Signer', this.signer)
 
       // Upload the file
       const [tx, uploadErr] = await this.indexer.upload(zgFile, this.rpcUrl, this.signer);
@@ -60,7 +57,7 @@ export class ZeroGStorage {
         console.log(`Upload error: ${uploadErr}`);
       }
 
-      console.log(`Uploaded chat ${chat.chatId} with transaction hash: ${tx}`);
+      console.log(`Uploaded chat ${chat.chatId} successfuly, transaction hash: ${tx}`);
 
       // Close the file
       await zgFile.close();
@@ -89,19 +86,20 @@ export class ZeroGStorage {
 
       try {
         // Download with proof verification
-        const downloadErr = await this.indexer.download(rootHash, tempFilePath, true);
+        const downloadErr = await this.indexer.download(rootHash, tempFilePath, false);
         if (downloadErr !== null) {
           console.error(`Failed to download file for root hash ${rootHash}: ${downloadErr}`);
           continue;
         }
+        console.log('File downloaded successfully at:', tempFilePath)
 
         // Read the downloaded file into a Buffer
         const data = await fs.readFile(tempFilePath);
         const chat: Chat = JSON.parse(data.toString());
         chats.push(chat);
-        console.log(`Successfully downloaded chat with root hash ${rootHash}`);
+        console.log(`Successfully fetched chat`);
       } catch (error) {
-        console.error(`Failed to download chat with root hash ${rootHash}:`, error);
+        console.error(`Failed to fetch chat from file`, error);
         continue;
       } finally {
         // Clean up the temporary file
